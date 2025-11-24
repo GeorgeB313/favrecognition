@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 📘 README – Etapa 3: Analiza și Pregătirea Setului de Date pentru Rețele Neuronale
 
 **Disciplina:** Rețele Neuronale
@@ -131,3 +132,6 @@ favrecognition/
 - [ ] Date preprocesate
 - [ ] Seturi train/val/test generate
 - [ ] Documentație actualizată în README + `data/README.md`
+=======
+# FruitAndVegetablesRecognition
+>>>>>>> 14030ebb6d719285faaaa20464c8d1085f505d7b
