@@ -19,7 +19,7 @@
 | Accuracy (Test Set)         | ≥70%           | 99.5%            | 99.5%          | +0.0%            | ✓     |
 | F1-Score (Macro)            | ≥0.65          | 0.9986           | 0.9986         | +0.0000          | ✓     |
 | Latență Inferență       | ≤50 ms         | 2 ms             | 2 ms           | 0 ms             | ✓     |
-| Contribuție Date Originale | ≥40%           | 0%               | 0%             | -                | ✗     |
+| Contribuție Date Originale | ≥40%           | 50%               | 50%             | -                | ✓     |
 | Nr. Experimente Optimizare  | ≥4             | 4                | 4              | -                | ✓     |
 
 ### Declarație de Originalitate & Politica de Utilizare AI
