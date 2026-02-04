@@ -566,7 +566,7 @@ Aș planifica din start o contribuție originală de date (minim 40%), pentru a 
 ### Acces și Versionare
 
 - [X] **Repository accesibil** cadrelor didactice RN (public sau privat cu acces)
-- [ ] **Tag `v0.6-optimized-final`** creat și pushed
+- [X] **Tag `v0.6-optimized-final`** creat și pushed
 - [ ] **Commit-uri incrementale** vizibile în `git log` (nu 1 commit gigantic)
 - [X] **Fișiere mari** (>100MB) excluse sau în `.gitignore`
 
