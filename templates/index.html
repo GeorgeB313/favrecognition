@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Recunoașterea Fructelor și Legumelor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="container py-5" id="appRoot" data-open-upload="{{ 'true' if preview_data else 'false' }}" data-detect-url="{{ url_for('api_detect') }}">
+      <div class="hero-center">
+        <h1 class="hero-title">favrecognition</h1>
+        <div class="hero-actions">
+          <button class="btn btn-primary hero-btn" type="button" id="openUpload">
+            Upload
+          </button>
+          <button class="btn btn-warning hero-btn" type="button" id="openLive">
+            Live
+          </button>
+        </div>
+      </div>
+
+      {% with messages = get_flashed_messages() %}
+      {% if messages %}
+      <div class="alert alert-warning" role="alert">
+        {{ messages[0] }}
+      </div>
+      {% endif %}
+      {% endwith %}
+
+
+    </div>
+
+    <div class="modal fade" id="uploadModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Upload</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            {% if upload_warning %}
+            <div class="alert alert-warning" role="alert">
+              {{ upload_warning }}
+            </div>
+            {% endif %}
+            <form
+              action="{{ url_for('predict') }}"
+              method="post"
+              enctype="multipart/form-data"
+              class="upload-card"
+            >
+              <label for="image" class="form-label fw-semibold">Încarcă imagine</label>
+              <input class="form-control" type="file" name="image" id="image" accept="image/*" required />
+              <button type="submit" class="btn btn-primary w-100 mt-3">Generează predicții</button>
+            </form>
+
+            <div class="modal-grid mt-4">
+              <div>
+                <h6 class="fw-semibold">Previzualizare</h6>
+                {% if preview_data %}
+                <div class="preview-wrapper">
+                  <img
+                    id="uploadPreview"
+                    src="data:image/png;base64,{{ preview_data }}"
+                    class="img-fluid rounded shadow-sm"
+                    alt="Previzualizarea imaginii încărcate"
+                    data-detections='{{ detections | tojson }}'
+                  />
+                  <canvas id="uploadOverlay" class="preview-overlay" aria-hidden="true"></canvas>
+                </div>
+                {% else %}
+                <div class="placeholder-box">Încarcă o imagine pentru previzualizare.</div>
+                {% endif %}
+              </div>
+              <div>
+                <h6 class="fw-semibold">Predicții</h6>
+                {% if predictions %}
+                <div class="prediction-list">
+                  {% set top_pred = predictions[0] %}
+                  <div class="prediction-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <span class="fw-semibold text-capitalize">{{ top_pred.label }}</span>
+                      <span class="fw-semibold">{{ (top_pred.probability * 100) | round(2) }}%</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-label="Probabilitate {{ top_pred.label }}">
+                      <div class="progress-bar" style="--probability: {{ (top_pred.probability * 100) | round(2) }};"></div>
+                    </div>
+                  </div>
+                  {% if predictions|length > 1 %}
+                  <button class="btn btn-outline-primary mt-3" type="button" id="uploadToggle">
+                    Arată alte predicții
+                  </button>
+                  <div class="prediction-list d-none mt-3" id="uploadMore">
+                    {% for pred in predictions[1:] %}
+                    <div class="prediction-item">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold text-capitalize">{{ pred.label }}</span>
+                        <span class="fw-semibold">{{ (pred.probability * 100) | round(2) }}%</span>
+                      </div>
+                      <div class="progress" role="progressbar" aria-label="Probabilitate {{ pred.label }}">
+                        <div class="progress-bar" style="--probability: {{ (pred.probability * 100) | round(2) }};"></div>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  {% endif %}
+                </div>
+                {% else %}
+                <div class="placeholder-box">Aștept o predicție.</div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="liveModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Live</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="camera-card">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-semibold mb-0">Mod cameră live</h6>
+                <span class="badge bg-dark-subtle text-dark fw-semibold" id="cameraStatus">Inactiv</span>
+              </div>
+              <div class="modal-grid">
+                <div>
+                  <div class="camera-wrapper">
+                    <video id="cameraStream" autoplay playsinline muted class="camera-frame mirror"></video>
+                    <canvas id="overlayCanvas" class="camera-overlay mirror" aria-hidden="true"></canvas>
+                  </div>
+                </div>
+                <div>
+                  <div id="livePlaceholder" class="placeholder-box">Fotografia capturată va apărea aici.</div>
+                  <img id="liveSnapshot" class="camera-frame mirror d-none" alt="Cadru surprins" />
+                </div>
+              </div>
+              <canvas id="captureCanvas" class="d-none" aria-hidden="true"></canvas>
+              <div class="camera-actions mt-3">
+                <button class="btn btn-outline-secondary flex-grow-1" type="button" id="startCamera">
+                  Pornește camera
+                </button>
+                <button class="btn btn-success flex-grow-1" type="button" id="captureFrame" disabled>
+                  Fotografiază și clasifică
+                </button>
+                <button class="btn btn-primary flex-grow-1" type="button" id="toggleAuto" disabled>
+                  Pornește auto-detectare
+                </button>
+              </div>
+              <div class="mt-4">
+                <h6 class="fw-semibold">Predicții</h6>
+                <p class="text-muted mb-3" id="liveMessage">Aștept o captură din cameră.</p>
+                <div class="prediction-list" id="liveResultsList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const startBtn = document.getElementById("startCamera");
+      const captureBtn = document.getElementById("captureFrame");
+      const video = document.getElementById("cameraStream");
+      const canvas = document.getElementById("captureCanvas");
+      const snapshot = document.getElementById("liveSnapshot");
+      const statusBadge = document.getElementById("cameraStatus");
+      const liveMessage = document.getElementById("liveMessage");
+      const liveResultsList = document.getElementById("liveResultsList");
+      const autoBtn = document.getElementById("toggleAuto");
+      const overlay = document.getElementById("overlayCanvas");
+      const overlayCtx = overlay ? overlay.getContext("2d") : null;
+      const uploadToggle = document.getElementById("uploadToggle");
+      const uploadMore = document.getElementById("uploadMore");
+      const uploadPreview = document.getElementById("uploadPreview");
+      const uploadOverlay = document.getElementById("uploadOverlay");
+      const openUpload = document.getElementById("openUpload");
+      const openLive = document.getElementById("openLive");
+      const uploadModalEl = document.getElementById("uploadModal");
+      const liveModalEl = document.getElementById("liveModal");
+      const uploadModal = uploadModalEl ? new bootstrap.Modal(uploadModalEl) : null;
+      const liveModal = liveModalEl ? new bootstrap.Modal(liveModalEl) : null;
+      const appRoot = document.getElementById("appRoot");
+      const shouldOpenUpload = appRoot?.dataset.openUpload === "true";
+
+      const DETECT_URL = appRoot?.dataset.detectUrl || "";
+      let mediaStream = null;
+      let autoRafId = null;
+      let autoActive = false;
+      let isProcessing = false;
+      const motionCanvas = document.createElement("canvas");
+      const motionCtx = motionCanvas.getContext("2d", { willReadFrequently: true });
+      let prevMotionFrame = null;
+      let motionActive = false;
+      const MOTION_WIDTH = 160;
+      const MOTION_HEIGHT = 120;
+      const MOTION_DIFF_THRESHOLD = 20;
+      const MOTION_MIN_RATIO = 0.02;
+
+      function setStatus(text, tone = "inactive") {
+        statusBadge.textContent = text;
+        statusBadge.className = "badge fw-semibold " +
+          (tone === "error"
+            ? "bg-danger"
+            : tone === "active"
+            ? "bg-success"
+            : "bg-dark-subtle text-dark");
+      }
+
+      // Pornește stream-ul video din cameră și inițiază detecția automată.
+      async function startCamera() {
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          video.srcObject = mediaStream;
+          captureBtn.disabled = false;
+          autoBtn.disabled = false;
+          startBtn.textContent = "Oprește camera";
+          setStatus("Activă", "active");
+          startAutoDetect();
+        } catch (error) {
+          console.error(error);
+          setStatus("Acces blocat", "error");
+          alert("Nu am putut accesa camera. Verifică permisiunile browserului.");
+        }
+      }
+
+      // Oprește camera și curăță stările UI asociate.
+      function stopCamera() {
+        if (mediaStream) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          mediaStream = null;
+        }
+        if (autoActive) {
+          stopAutoDetect();
+        }
+        video.srcObject = null;
+        if (snapshot) {
+          snapshot.classList.add("d-none");
+          snapshot.src = "";
+        }
+        const livePlaceholder = document.getElementById("livePlaceholder");
+        livePlaceholder?.classList.remove("d-none");
+        captureBtn.disabled = true;
+        autoBtn.disabled = true;
+        startBtn.textContent = "Pornește camera";
+        setStatus("Inactiv", "inactive");
+      }
+
+      // Construiește un card UI pentru o singură predicție.
+      function buildPredictionItem(pred) {
+        const item = document.createElement("div");
+        item.className = "prediction-item";
+
+        const header = document.createElement("div");
+        header.className = "d-flex justify-content-between align-items-center";
+
+        const label = document.createElement("span");
+        label.className = "fw-semibold text-capitalize";
+        label.textContent = pred.label;
+
+        const probText = document.createElement("span");
+        probText.className = "fw-semibold";
+        probText.textContent = `${(pred.probability * 100).toFixed(2)}%`;
+
+        header.appendChild(label);
+        header.appendChild(probText);
+
+        const progressWrapper = document.createElement("div");
+        progressWrapper.className = "progress";
+        progressWrapper.setAttribute("role", "progressbar");
+        progressWrapper.setAttribute("aria-label", `Probabilitate ${pred.label}`);
+
+        const progressBar = document.createElement("div");
+        progressBar.className = "progress-bar";
+        progressBar.style.setProperty("--probability", (pred.probability * 100).toFixed(2));
+
+        progressWrapper.appendChild(progressBar);
+        item.appendChild(header);
+        item.appendChild(progressWrapper);
+        return item;
+      }
+
+      // Afișează predicțiile în zona live.
+      function renderPredictions(predictions) {
+        liveResultsList.innerHTML = "";
+        if (!predictions || predictions.length === 0) {
+          return;
+        }
+        const top = predictions[0];
+        liveResultsList.appendChild(buildPredictionItem(top));
+
+        if (predictions.length > 1) {
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.className = "btn btn-outline-primary mt-3";
+          toggle.textContent = "Arată alte predicții";
+
+          const moreList = document.createElement("div");
+          moreList.className = "prediction-list d-none mt-3";
+
+          predictions.slice(1).forEach((pred) => {
+            moreList.appendChild(buildPredictionItem(pred));
+          });
+
+          toggle.addEventListener("click", () => {
+            const isHidden = moreList.classList.contains("d-none");
+            moreList.classList.toggle("d-none");
+            toggle.textContent = isHidden ? "Ascunde alte predicții" : "Arată alte predicții";
+          });
+
+          liveResultsList.appendChild(toggle);
+          liveResultsList.appendChild(moreList);
+        }
+      }
+
+      // Capturează un cadru și îl trimite către API-ul de detecție.
+      async function captureFrame() {
+        if (!mediaStream) {
+          return;
+        }
+        if (isProcessing) {
+          return;
+        }
+        isProcessing = true;
+        const track = mediaStream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        const width = settings.width || video.videoWidth || 640;
+        const height = settings.height || video.videoHeight || 480;
+
+        canvas.width = width;
+        canvas.height = height;
+        if (overlay) {
+          overlay.width = width;
+          overlay.height = height;
+        }
+        canvas.getContext("2d").drawImage(video, 0, 0, width, height);
+
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            setStatus("Captură eșuată", "error");
+            isProcessing = false;
+            return;
+          }
+
+          snapshot.src = URL.createObjectURL(blob);
+          snapshot.classList.remove("d-none");
+          const livePlaceholder = document.getElementById("livePlaceholder");
+          livePlaceholder?.classList.add("d-none");
+          if (liveMessage) {
+            liveMessage.textContent = "Se procesează cadrul capturat...";
+          }
+
+          try {
+            const formData = new FormData();
+            formData.append("image", blob, "camera.png");
+            const response = await fetch(DETECT_URL, {
+              method: "POST",
+              body: formData,
+            });
+            const data = await response.json();
+            if (response.ok && data.detections) {
+              if (data.detections.length === 0) {
+                if (liveMessage) {
+                  liveMessage.textContent = "Niciun fruct/legumă detectat.";
+                }
+                if (liveResultsList) {
+                  liveResultsList.innerHTML = "";
+                }
+                drawDetections([], canvas.width, canvas.height);
+              } else {
+                if (liveMessage) {
+                  liveMessage.textContent = "Detectat obiect în cadru:";
+                }
+                drawDetections(data.detections, canvas.width, canvas.height);
+                const predictions = data.detections.map((det) => ({
+                  label: det.label,
+                  probability: det.confidence,
+                }));
+                renderPredictions(predictions);
+              }
+            } else {
+              throw new Error(data.error || "Eroare necunoscută");
+            }
+          } catch (err) {
+            console.error(err);
+            if (liveMessage) {
+              liveMessage.textContent = "Nu am putut procesa cadrul. Încearcă din nou.";
+            }
+            setStatus("Eroare", "error");
+          } finally {
+            isProcessing = false;
+          }
+        }, "image/png");
+      }
+
+      // Desenează box-urile detectate peste stream-ul video.
+      function drawDetections(detections, imageWidth, imageHeight) {
+        if (!overlayCtx || !overlay) {
+          return;
+        }
+        overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
+        if (!detections || detections.length === 0) {
+          return;
+        }
+        const scaleX = overlay.width / imageWidth;
+        const scaleY = overlay.height / imageHeight;
+
+        overlayCtx.lineWidth = 3;
+        overlayCtx.strokeStyle = "#22d3ee";
+        overlayCtx.fillStyle = "rgba(15, 23, 42, 0.7)";
+        overlayCtx.font = "14px Inter, sans-serif";
+
+        detections.forEach((det) => {
+          const box = det.box;
+          const x = box.x * scaleX;
+          const y = box.y * scaleY;
+          const w = box.w * scaleX;
+          const h = box.h * scaleY;
+          overlayCtx.strokeRect(x, y, w, h);
+          const label = `${det.label} ${(det.confidence * 100).toFixed(1)}%`;
+          const textWidth = overlayCtx.measureText(label).width + 10;
+          const textHeight = 20;
+          overlayCtx.fillRect(x, Math.max(0, y - textHeight), textWidth, textHeight);
+          overlayCtx.fillStyle = "#fff";
+          overlayCtx.fillText(label, x + 5, Math.max(14, y - 6));
+          overlayCtx.fillStyle = "rgba(15, 23, 42, 0.7)";
+        });
+      }
+
+      // Desenează box-urile pentru imaginea încărcată în modal.
+      function drawUploadDetections() {
+        if (!uploadPreview || !uploadOverlay) {
+          return;
+        }
+        const detections = JSON.parse(uploadPreview.dataset.detections || "null") || [];
+        const rect = uploadPreview.getBoundingClientRect();
+        uploadOverlay.width = rect.width;
+        uploadOverlay.height = rect.height;
+        uploadOverlay.style.width = `${rect.width}px`;
+        uploadOverlay.style.height = `${rect.height}px`;
+
+        const ctx = uploadOverlay.getContext("2d");
+        ctx.clearRect(0, 0, uploadOverlay.width, uploadOverlay.height);
+        if (!detections.length) {
+          return;
+        }
+
+        const scaleX = uploadOverlay.width / (uploadPreview.naturalWidth || rect.width);
+        const scaleY = uploadOverlay.height / (uploadPreview.naturalHeight || rect.height);
+
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#22d3ee";
+        ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+        ctx.font = "14px Inter, sans-serif";
+
+        detections.forEach((det) => {
+          const box = det.box || {};
+          const x = (box.x || 0) * scaleX;
+          const y = (box.y || 0) * scaleY;
+          const w = (box.w || 0) * scaleX;
+          const h = (box.h || 0) * scaleY;
+          ctx.strokeRect(x, y, w, h);
+          const label = `${det.label} ${(det.confidence * 100).toFixed(1)}%`;
+          const textWidth = ctx.measureText(label).width + 10;
+          const textHeight = 20;
+          ctx.fillRect(x, Math.max(0, y - textHeight), textWidth, textHeight);
+          ctx.fillStyle = "#fff";
+          ctx.fillText(label, x + 5, Math.max(14, y - 6));
+          ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+        });
+      }
+
+      // Heuristică simplă: detectează mișcare între două cadre.
+      function shouldTriggerDetection() {
+        if (!mediaStream || video.readyState < 2) {
+          return false;
+        }
+        motionCanvas.width = MOTION_WIDTH;
+        motionCanvas.height = MOTION_HEIGHT;
+        motionCtx.drawImage(video, 0, 0, MOTION_WIDTH, MOTION_HEIGHT);
+        const frame = motionCtx.getImageData(0, 0, MOTION_WIDTH, MOTION_HEIGHT);
+
+        if (!prevMotionFrame) {
+          prevMotionFrame = frame;
+          return false;
+        }
+
+        let changed = 0;
+        const total = MOTION_WIDTH * MOTION_HEIGHT;
+        for (let i = 0; i < frame.data.length; i += 4) {
+          const dr = Math.abs(frame.data[i] - prevMotionFrame.data[i]);
+          const dg = Math.abs(frame.data[i + 1] - prevMotionFrame.data[i + 1]);
+          const db = Math.abs(frame.data[i + 2] - prevMotionFrame.data[i + 2]);
+          if (dr + dg + db > MOTION_DIFF_THRESHOLD) {
+            changed += 1;
+          }
+        }
+
+        prevMotionFrame = frame;
+        const ratio = changed / total;
+        if (ratio >= MOTION_MIN_RATIO) {
+          if (!motionActive) {
+            motionActive = true;
+            return true;
+          }
+          return false;
+        }
+        motionActive = false;
+        return false;
+      }
+
+      // Loop-ul de auto-detectare care rulează la fiecare frame.
+      function autoLoop() {
+        if (!autoActive) {
+          return;
+        }
+        if (!isProcessing && shouldTriggerDetection()) {
+          captureFrame();
+        }
+        autoRafId = requestAnimationFrame(autoLoop);
+      }
+
+      // Activează auto-detectarea (folosind mișcarea ca trigger).
+      function startAutoDetect() {
+        if (autoActive) {
+          return;
+        }
+        autoActive = true;
+        if (liveMessage) {
+          liveMessage.textContent = "Auto-detectare activă. Ține fructul/leguma în fața camerei.";
+        }
+        autoBtn.textContent = "Oprește auto-detectare";
+        autoLoop();
+      }
+
+      // Oprește auto-detectarea și resetează UI-ul.
+      function stopAutoDetect() {
+        autoActive = false;
+        if (autoRafId) {
+          cancelAnimationFrame(autoRafId);
+          autoRafId = null;
+        }
+        autoBtn.textContent = "Pornește auto-detectare";
+        if (liveMessage) {
+          liveMessage.textContent = "Auto-detectarea s-a oprit.";
+        }
+      }
+
+      // Toggle între start/stop pentru auto-detectare.
+      function toggleAutoDetect() {
+        if (!mediaStream) {
+          return;
+        }
+        if (autoActive) {
+          stopAutoDetect();
+        } else {
+          startAutoDetect();
+        }
+      }
+
+      // Arată/ascunde lista extinsă de predicții la upload.
+      function toggleUploadPredictions() {
+        if (!uploadMore || !uploadToggle) {
+          return;
+        }
+        const isHidden = uploadMore.classList.contains("d-none");
+        uploadMore.classList.toggle("d-none");
+        uploadToggle.textContent = isHidden ? "Ascunde alte predicții" : "Arată alte predicții";
+      }
+
+      startBtn?.addEventListener("click", () => {
+        if (mediaStream) {
+          stopCamera();
+        } else {
+          startCamera();
+        }
+      });
+      captureBtn?.addEventListener("click", captureFrame);
+      autoBtn?.addEventListener("click", toggleAutoDetect);
+      uploadToggle?.addEventListener("click", toggleUploadPredictions);
+      uploadPreview?.addEventListener("load", drawUploadDetections);
+      window.addEventListener("resize", drawUploadDetections);
+      if (uploadPreview?.complete) {
+        drawUploadDetections();
+      }
+      openUpload?.addEventListener("click", () => uploadModal?.show());
+      openLive?.addEventListener("click", () => liveModal?.show());
+      liveModalEl?.addEventListener("hidden.bs.modal", () => stopCamera());
+      uploadModalEl?.addEventListener("shown.bs.modal", () => drawUploadDetections());
+      if (shouldOpenUpload) {
+        uploadModal?.show();
+      }
+      document.addEventListener("copy", (event) => {
+        event.preventDefault();
+      });
+      document.addEventListener("cut", (event) => {
+        event.preventDefault();
+      });
+      document.addEventListener("selectstart", (event) => {
+        event.preventDefault();
+      });
+    </script>
+  </body>
+</html>

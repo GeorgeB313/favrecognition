@@ -1,0 +1,17 @@
+{
+  "model": "models/optimized_model.pt",
+  "metric_type": "detection",
+  "test_accuracy": 0.995,
+  "test_f1_macro": 0.9986,
+  "test_precision_macro": 0.99795,
+  "test_recall_macro": 0.99926,
+  "false_negative_rate": 0.00074,
+  "false_positive_rate": 0.00205,
+  "inference_latency_ms": 2.0,
+  "improvement_vs_baseline": {
+    "accuracy": "N/A",
+    "f1_score": "N/A",
+    "latency": "N/A"
+  },
+  "source": "runs/detect/runs/detect/fruitveg5/results.csv"
+}

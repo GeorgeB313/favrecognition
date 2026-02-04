@@ -1,0 +1,5 @@
+exp,change,accuracy,f1_macro,train_time,notes
+Baseline,YOLOv8n img512 batch8 epoch28,0.995,0.9986,2.47h,mAP50 as accuracy
+Exp1,YOLOv8n img384 batch8 epoch1,0.5168,0.5419,0.08h,mAP50 as accuracy
+Exp2,YOLOv8n img512 batch16 epoch1,0.5204,0.5665,0.08h,mAP50 as accuracy
+Exp3,YOLOv8s img640 batch8 epoch1,0.8605,0.7569,0.17h,mAP50 as accuracy

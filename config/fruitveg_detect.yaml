@@ -1,0 +1,34 @@
+# YOLOv8 dataset config (update paths and class names)
+path: data/yolo
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: mar
+  1: avocado
+  2: banana
+  3: fasole
+  4: mure
+  5: varza
+  6: fruct de cactus
+  7: morcov
+  8: caju
+  9: cherimoya
+  10: cirese
+  11: castravete
+  12: vanata
+  13: ghimbir
+  14: agrise
+  15: struguri
+  16: nectarine
+  17: nuca
+  18: ceapa
+  19: papaya
+  20: piersica
+  21: para
+  22: fistic
+  23: pruna
+  24: gutuie
+  25: rosie
+  26: dovlecel

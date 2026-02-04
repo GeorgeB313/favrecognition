@@ -1,0 +1,6 @@
+image,true_label,predicted,confidence,note
+data\yolo\images\val\agrise\r0_151.png,agrise,ceapa,0.321,încredere scăzută
+data\yolo\images\val\agrise\r0_187.png,agrise,ceapa,0.328,încredere scăzută
+data\yolo\images\val\agrise\r0_219.png,agrise,rosie,0.421,încredere scăzută
+data\yolo\images\val\agrise\r0_23.png,agrise,﻿mar,0.312,încredere scăzută
+data\yolo\images\val\agrise\r0_231.png,agrise,rosie,0.327,încredere scăzută

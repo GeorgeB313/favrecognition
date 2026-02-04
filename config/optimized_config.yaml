@@ -1,0 +1,11 @@
+# Configurație model optimizat (Etapa 6)
+model: optimized_model.pt
+backbone: custom
+image_size: 224
+batch_size: 16
+learning_rate: 0.001
+epochs: 60
+augmentations:
+  - horizontal_flip
+  - rotation_15
+  - color_jitter
